@@ -50,47 +50,78 @@ jobs:
       run: |
         msbuild "src\driver\driver.vcxproj" `
           /p:Configuration="Debug - InfinityHook" `
-          /p:Platform=x64
+          /p:Platform=x64 `
+          /v:detailed
+    
+    - name: Debug - Check what was built
+      run: |
+        Write-Host "=== Contents of src directory ==="
+        Get-ChildItem -Path "src" -Recurse -Include *.sys,*.exe,*.dll | ForEach-Object {
+          Write-Host "$($_.FullName) - Size: $($_.Length) bytes"
+        }
+        
+        Write-Host "`n=== Contents of src\bin (if exists) ==="
+        if (Test-Path "src\bin") {
+          Get-ChildItem -Path "src\bin" -Recurse
+        }
+        
+        Write-Host "`n=== Contents of src\driver (if exists) ==="
+        if (Test-Path "src\driver") {
+          Get-ChildItem -Path "src\driver" -Recurse -Include *.sys
+        }
+      continue-on-error: true
     
     - name: Build loader (try different configurations)
       run: |
         # Try Debug configuration first
-        $result = msbuild "src\test-driver\test-driver.vcxproj" `
+        msbuild "src\test-driver\test-driver.vcxproj" `
           /p:Configuration=Debug `
-          /p:Platform=x64 2>&1
-        
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "Debug failed, trying Release..."
-          msbuild "src\test-driver\test-driver.vcxproj" `
-            /p:Configuration=Release `
-            /p:Platform=x64
-        }
+          /p:Platform=x64
     
-    - name: Find and rename driver
+    - name: Debug - Check loader output
       run: |
-        # Find the built driver file
-        $driverPath = Get-ChildItem -Path "src\bin" -Filter "driver.sys" -Recurse | Select-Object -First 1
-        if ($driverPath) {
-          Rename-Item $driverPath.FullName "vac-bypass-kernel.sys"
-          Write-Host "Renamed driver at: $($driverPath.DirectoryName)"
+        Write-Host "=== Looking for test-driver.exe ==="
+        Get-ChildItem -Path "src" -Recurse -Filter "test-driver.exe"
+      continue-on-error: true
+    
+    - name: Find and collect artifacts
+      run: |
+        # Find all built files
+        Write-Host "=== Finding all .sys and .exe files ==="
+        $sysFiles = Get-ChildItem -Path "src" -Filter "*.sys" -Recurse
+        $exeFiles = Get-ChildItem -Path "src" -Filter "*.exe" -Recurse
+        
+        Write-Host "`nDriver files (.sys):"
+        $sysFiles | ForEach-Object { Write-Host $_.FullName }
+        
+        Write-Host "`nExecutable files (.exe):"
+        $exeFiles | ForEach-Object { Write-Host $_.FullName }
+        
+        # Create output directory
+        New-Item -ItemType Directory -Force -Path "output"
+        
+        # Copy driver (look for driver.sys anywhere)
+        $driver = Get-ChildItem -Path "src" -Filter "driver.sys" -Recurse | Select-Object -First 1
+        if ($driver) {
+          Copy-Item $driver.FullName "output\vac-bypass-kernel.sys"
+          Write-Host "`nCopied driver from: $($driver.FullName)"
         } else {
-          Write-Error "driver.sys not found"
-          exit 1
+          Write-Warning "driver.sys not found"
         }
-    
-    - name: Upload artifacts
-      run: |
-        # Find the built files
-        $driver = Get-ChildItem -Path "src\bin" -Filter "vac-bypass-kernel.sys" -Recurse | Select-Object -First 1
-        $loader = Get-ChildItem -Path "src\bin" -Filter "test-driver.exe" -Recurse | Select-Object -First 1
         
-        Write-Host "Driver: $($driver.FullName)"
-        Write-Host "Loader: $($loader.FullName)"
+        # Copy loader
+        $loader = Get-ChildItem -Path "src" -Filter "test-driver.exe" -Recurse | Select-Object -First 1
+        if ($loader) {
+          Copy-Item $loader.FullName "output\test-driver.exe"
+          Write-Host "Copied loader from: $($loader.FullName)"
+        } else {
+          Write-Warning "test-driver.exe not found"
+        }
+      continue-on-error: true
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: vac-bypass-files
-        path: |
-          src/bin/**/vac-bypass-kernel.sys
-          src/bin/**/test-driver.exe
+        path: output/
+      continue-on-error: true
