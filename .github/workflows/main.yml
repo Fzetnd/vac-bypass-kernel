@@ -52,20 +52,45 @@ jobs:
           /p:Configuration="Debug - InfinityHook" `
           /p:Platform=x64
     
-    - name: Build loader
+    - name: Build loader (try different configurations)
       run: |
-        msbuild "src\test-driver\test-driver.vcxproj" `
-          /p:Configuration="Debug - InfinityHook" `
-          /p:Platform=x64
+        # Try Debug configuration first
+        $result = msbuild "src\test-driver\test-driver.vcxproj" `
+          /p:Configuration=Debug `
+          /p:Platform=x64 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "Debug failed, trying Release..."
+          msbuild "src\test-driver\test-driver.vcxproj" `
+            /p:Configuration=Release `
+            /p:Platform=x64
+        }
     
-    - name: Rename driver
+    - name: Find and rename driver
       run: |
-        ren "src\bin\x64\Debug - InfinityHook\driver.sys" vac-bypass-kernel.sys
+        # Find the built driver file
+        $driverPath = Get-ChildItem -Path "src\bin" -Filter "driver.sys" -Recurse | Select-Object -First 1
+        if ($driverPath) {
+          Rename-Item $driverPath.FullName "vac-bypass-kernel.sys"
+          Write-Host "Renamed driver at: $($driverPath.DirectoryName)"
+        } else {
+          Write-Error "driver.sys not found"
+          exit 1
+        }
+    
+    - name: Upload artifacts
+      run: |
+        # Find the built files
+        $driver = Get-ChildItem -Path "src\bin" -Filter "vac-bypass-kernel.sys" -Recurse | Select-Object -First 1
+        $loader = Get-ChildItem -Path "src\bin" -Filter "test-driver.exe" -Recurse | Select-Object -First 1
+        
+        Write-Host "Driver: $($driver.FullName)"
+        Write-Host "Loader: $($loader.FullName)"
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: vac-bypass-files
         path: |
-          src\bin\x64\Debug - InfinityHook\vac-bypass-kernel.sys
-          src\bin\x64\Debug - InfinityHook\test-driver.exe
+          src/bin/**/vac-bypass-kernel.sys
+          src/bin/**/test-driver.exe
