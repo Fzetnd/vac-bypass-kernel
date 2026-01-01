@@ -11,26 +11,54 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: 'recursive'
+        fetch-depth: 0
+    
+    - name: Initialize submodules
+      run: |
+        git submodule update --init --recursive --force
+    
+    - name: Debug - Check directory structure
+      run: |
+        Write-Host "=== Root directory ==="
+        Get-ChildItem
+        Write-Host "`n=== ThirdParty directory ==="
+        if (Test-Path "ThirdParty") {
+          Get-ChildItem ThirdParty
+          if (Test-Path "ThirdParty\zydis") {
+            Write-Host "`n=== Zydis directory ==="
+            Get-ChildItem ThirdParty\zydis
+          }
+        }
     
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
     
     - name: Build Zydis dependency
       run: |
-        if (Test-Path "ThirdParty\zydis\msvc\Zydis.sln") {
-          msbuild "ThirdParty\zydis\msvc\Zydis.sln" `
-            /p:Configuration=DebugKernel `
-            /p:Platform=x64
-        } elseif (Test-Path "ThirdParty\zydis") {
-          cd ThirdParty\zydis
-          cmake -B build -G "Visual Studio 17 2022" -A x64
-          cmake --build build --config Debug
-          cd ..\..
-        } else {
-          Write-Error "Zydis submodule not found"
+        if (-not (Test-Path "ThirdParty\zydis")) {
+          Write-Error "Zydis submodule not found. Check .gitmodules file."
           exit 1
         }
+        
+        cd ThirdParty\zydis
+        
+        # Build Zydis using CMake
+        cmake -B build -G "Visual Studio 17 2022" -A x64 `
+          -DZYDIS_BUILD_SHARED_LIB=OFF `
+          -DZYDIS_BUILD_EXAMPLES=OFF `
+          -DZYDIS_BUILD_TOOLS=OFF
+        
+        cmake --build build --config Debug
+        
+        # Create the expected output directory
+        New-Item -ItemType Directory -Force -Path "msvc\bin\DebugX64Kernel"
+        
+        # Copy libraries to expected location
+        Copy-Item "build\Debug\Zydis.lib" "msvc\bin\DebugX64Kernel\"
+        Copy-Item "build\Debug\Zycore.lib" "msvc\bin\DebugX64Kernel\"
+        
+        cd ..\..
     
     - name: Build driver (InfinityHook)
       run: |
