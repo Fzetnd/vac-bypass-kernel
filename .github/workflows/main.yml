@@ -1,10 +1,8 @@
 name: Build VAC Bypass
-
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: windows-2022
@@ -22,7 +20,7 @@ jobs:
         msbuild "src\driver\driver.vcxproj" `
           /p:Configuration="Debug - InfinityHook" `
           /p:Platform=x64 `
-          /p:IncludePath="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km;%(IncludePath)"
+          /p:IncludePath="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km;%%(IncludePath)"
     
     - name: Build loader
       run: |
