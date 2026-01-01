@@ -18,19 +18,6 @@ jobs:
       run: |
         git submodule update --init --recursive --force
     
-    - name: Debug - Check directory structure
-      run: |
-        Write-Host "=== Root directory ==="
-        Get-ChildItem
-        Write-Host "`n=== thirdparty directory (lowercase) ==="
-        if (Test-Path "thirdparty") {
-          Get-ChildItem thirdparty -Recurse -Depth 2
-        }
-        Write-Host "`n=== ThirdParty directory (uppercase) ==="
-        if (Test-Path "ThirdParty") {
-          Get-ChildItem ThirdParty -Recurse -Depth 2
-        }
-    
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
     
@@ -53,9 +40,9 @@ jobs:
         # Create the expected output directory structure
         New-Item -ItemType Directory -Force -Path "msvc\bin\DebugX64Kernel"
         
-        # Copy libraries
+        # Copy libraries (note the correct paths)
         Copy-Item "build\Debug\Zydis.lib" "msvc\bin\DebugX64Kernel\"
-        Copy-Item "build\Debug\Zycore.lib" "msvc\bin\DebugX64Kernel\"
+        Copy-Item "build\zycore\Debug\Zycore.lib" "msvc\bin\DebugX64Kernel\"
         
         cd ..\..
     
