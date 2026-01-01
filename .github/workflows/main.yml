@@ -1,0 +1,43 @@
+name: Build VAC Bypass
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Build driver (InfinityHook)
+      run: |
+        msbuild "src\driver\driver.vcxproj" `
+          /p:Configuration="Debug - InfinityHook" `
+          /p:Platform=x64 `
+          /p:IncludePath="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km;%(IncludePath)"
+    
+    - name: Build loader
+      run: |
+        msbuild "src\test-driver\test-driver.vcxproj" `
+          /p:Configuration="Debug - InfinityHook" `
+          /p:Platform=x64
+    
+    - name: Rename driver
+      run: |
+        ren "src\bin\x64\Debug - InfinityHook\driver.sys" vac-bypass-kernel.sys
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vac-bypass-files
+        path: |
+          src\bin\x64\Debug - InfinityHook\vac-bypass-kernel.sys
+          src\bin\x64\Debug - InfinityHook\test-driver.exe
