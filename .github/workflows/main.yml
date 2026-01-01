@@ -3,6 +3,7 @@ on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-2022
@@ -15,12 +16,27 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
     
+    - name: Build Zydis dependency
+      run: |
+        if (Test-Path "ThirdParty\zydis\msvc\Zydis.sln") {
+          msbuild "ThirdParty\zydis\msvc\Zydis.sln" `
+            /p:Configuration=DebugKernel `
+            /p:Platform=x64
+        } elseif (Test-Path "ThirdParty\zydis") {
+          cd ThirdParty\zydis
+          cmake -B build -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config Debug
+          cd ..\..
+        } else {
+          Write-Error "Zydis submodule not found"
+          exit 1
+        }
+    
     - name: Build driver (InfinityHook)
       run: |
         msbuild "src\driver\driver.vcxproj" `
           /p:Configuration="Debug - InfinityHook" `
-          /p:Platform=x64 `
-          /p:AdditionalIncludeDirectories="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km"
+          /p:Platform=x64
     
     - name: Build loader
       run: |
