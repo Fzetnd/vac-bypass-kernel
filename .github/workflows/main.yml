@@ -20,7 +20,7 @@ jobs:
         msbuild "src\driver\driver.vcxproj" `
           /p:Configuration="Debug - InfinityHook" `
           /p:Platform=x64 `
-          /p:IncludePath="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km;%%(IncludePath)"
+          /p:AdditionalIncludeDirectories="C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\km"
     
     - name: Build loader
       run: |
